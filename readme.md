@@ -120,7 +120,7 @@ videos/<output-folder>/
 Example:
 
 ```
-videos/channel-sports/
+videos/sports-videos/
   1_intro.mp4
   2_soccer.mp4
 ```
