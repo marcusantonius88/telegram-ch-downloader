@@ -25,7 +25,7 @@ MAX_RETRIES = 10
 # =============================
 def sanitize_filename(name):
     if not name:
-        return "sem_titulo"
+        return "no_title"
 
     name = name.split("\n")[0]
     name = re.sub(r'[\\/*?:"<>|]', "", name)
@@ -44,7 +44,7 @@ def get_file_title(message):
     if message.text:
         return sanitize_filename(message.text)
 
-    return "sem_titulo"
+    return "no_title"
 
 
 def build_paths(base_path, message):
@@ -61,13 +61,49 @@ def format_time(seconds):
     if seconds <= 0:
         return "--:--:--"
 
-    seconds = int(seconds)
+    total_seconds = int(seconds)
 
-    hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
-    secs = seconds % 60
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    secs = total_seconds % 60
 
     return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
+def format_speed(bytes_per_sec):
+    if bytes_per_sec == 0:
+        return "0 KB/s"
+
+    units = ["B/s", "KB/s", "MB/s", "GB/s"]
+    size = bytes_per_sec
+    i = 0
+
+    while size >= 1024 and i < len(units) - 1:
+        size /= 1024
+        i += 1
+
+    if i == 0:
+        return f"{int(size)} {units[i]}"
+    else:
+        return f"{size:.2f} {units[i]}"
+
+
+def format_size(bytes_val):
+    units = ["B", "KB", "MB", "GB"]
+    size = bytes_val
+    i = 0
+
+    while size >= 1024 and i < len(units) - 1:
+        size /= 1024
+        i += 1
+
+    return f"{size:.1f} {units[i]}"
+
+
+def create_progress_bar(percent, length=30):
+    filled = int(length * percent / 100)
+    bar = "█" * filled + "-" * (length - filled)
+    return f"[{bar}]"
 
 
 def create_progress_callback(file_name):
@@ -81,20 +117,24 @@ def create_progress_callback(file_name):
         speed = current / elapsed if elapsed > 0 else 0
 
         percent = current * 100 / total
-        current_mb = current / (1024 * 1024)
-        total_mb = total / (1024 * 1024)
-        speed_mb = speed / (1024 * 1024)
+
+        speed_str = format_speed(speed)
+        current_str = format_size(current)
+        total_str = format_size(total)
 
         remaining = (total - current) / speed if speed > 0 else 0
         eta = format_time(remaining)
 
-        print(
-            f"\r{file_name} | {percent:.1f}% "
-            f"({current_mb:.1f}/{total_mb:.1f} MB) "
-            f"| {speed_mb:.2f} MB/s "
-            f"| ETA: {eta}",
-            end=""
+        bar = create_progress_bar(percent)
+
+        line = (
+            f"{file_name} "
+            f"{bar} {percent:.1f}% | "
+            f"{current_str}/{total_str} | "
+            f"{speed_str} | ETA: {eta}"
         )
+
+        print(f"\r{line}", end="", flush=True)
 
     return progress
 
@@ -107,7 +147,7 @@ async def login(client):
 
     if not await client.is_user_authorized():
         await client.send_code_request(phone)
-        code = input("Digite o codigo do Telegram: ")
+        code = input("Enter the code received on Telegram: ")
         await client.sign_in(phone, code)
 
 
@@ -115,12 +155,12 @@ async def download_with_retry(client, message, base_path):
     final_path, temp_path, file_name = build_paths(base_path, message)
 
     if os.path.exists(final_path):
-        print(f"\nJa existe: {file_name}")
+        print(f"\nSkipping (already exists): {file_name}")
         return
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            print(f"\nBaixando {file_name} (tentativa {attempt})")
+            print(f"\nDownloading {file_name} (attempt {attempt})")
 
             await client.download_media(
                 message,
@@ -130,20 +170,20 @@ async def download_with_retry(client, message, base_path):
 
             os.rename(temp_path, final_path)
 
-            print("\nDownload concluido")
+            print("\nDownload completed")
             return
 
         except Exception as e:
-            print(f"\nErro: {e}")
+            print(f"\nError: {e}")
 
             if attempt == MAX_RETRIES:
-                print("Falhou definitivamente.")
+                print("Failed after maximum retries. Removing incomplete file.")
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
                 return
 
             wait = 2 * attempt
-            print(f"Tentando novamente em {wait}s...")
+            print(f"Retrying in {wait} seconds...")
             await asyncio.sleep(wait)
 
 
@@ -153,40 +193,39 @@ async def run_downloader(channel, output):
 
     client = TelegramClient("session", api_id, api_hash)
 
-    print("Conectando...")
+    print("Connecting to Telegram...")
     await login(client)
 
-    # 🔥 FIX: aceita int ou string
     try:
         entity = await client.get_entity(int(channel))
     except ValueError:
         entity = await client.get_entity(channel)
 
-    print("Baixando videos...\n")
+    print("Starting video download...\n")
 
     async for message in client.iter_messages(entity, reverse=True):
         if message.video:
             await download_with_retry(client, message, base_path)
 
     await client.disconnect()
-    print("\nFinalizado!")
+    print("\nAll downloads completed!")
 
 
 # =============================
 # CLI COMMAND
 # =============================
 @app.command()
-def download(
-    channel: str = typer.Option(..., help="ID ou link do canal"),
-    output: str = typer.Option(..., help="Nome da pasta de saída"),
+def main(
+    channel: str = typer.Option(..., help="Channel ID or public link"),
+    output: str = typer.Option(..., help="Output folder name"),
 ):
     """
-    Baixa vídeos de um canal do Telegram
+    Download videos from a Telegram channel
     """
     try:
         asyncio.run(run_downloader(channel, output))
     except KeyboardInterrupt:
-        print("\nEncerrado pelo usuario.")
+        print("\nExecution interrupted by user.")
 
 
 if __name__ == "__main__":
