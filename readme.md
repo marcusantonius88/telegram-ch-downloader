@@ -49,7 +49,7 @@ You need to create your Telegram API credentials:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/telegram-ch-downloader.git
+git clone https://github.com/marcusantonius88/telegram-ch-downloader.git
 cd telegram-ch-downloader
 ```
 
