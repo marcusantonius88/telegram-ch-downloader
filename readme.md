@@ -96,7 +96,7 @@ python tg_downloader.py --channel <CHANNEL_ID_OR_LINK> --output <FOLDER_NAME>
 ### 📌 Example (Private Channel)
 
 ```bash
-python tg_downloader.py --channel -1002264149640 --output mba-fullcycle
+python tg_downloader.py --channel -1002264149640 --output sports-videos
 ```
 
 ---
@@ -104,7 +104,7 @@ python tg_downloader.py --channel -1002264149640 --output mba-fullcycle
 ### 📌 Example (Public Channel)
 
 ```bash
-python tg_downloader.py --channel https://t.me/channelname --output my-videos
+python tg_downloader.py --channel https://t.me/channelsports --output sports-videos
 ```
 
 ---
@@ -120,7 +120,7 @@ videos/<output-folder>/
 Example:
 
 ```
-videos/channel-sports/
+videos/sports-videos/
   1_intro.mp4
   2_soccer.mp4
 ```
