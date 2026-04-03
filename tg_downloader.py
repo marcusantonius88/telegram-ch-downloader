@@ -4,6 +4,7 @@ import asyncio
 import time
 import typer
 from telethon import TelegramClient
+from telethon.errors import ChatIdInvalidError
 from dotenv import load_dotenv
 
 app = typer.Typer()
@@ -82,10 +83,7 @@ def format_speed(bytes_per_sec):
         size /= 1024
         i += 1
 
-    if i == 0:
-        return f"{int(size)} {units[i]}"
-    else:
-        return f"{size:.2f} {units[i]}"
+    return f"{size:.2f} {units[i]}" if i > 0 else f"{int(size)} {units[i]}"
 
 
 def format_size(bytes_val):
@@ -151,16 +149,18 @@ async def login(client):
         await client.sign_in(phone, code)
 
 
-async def download_with_retry(client, message, base_path):
+async def download_with_retry(client, message, base_path, index, total):
     final_path, temp_path, file_name = build_paths(base_path, message)
 
+    print(f"\nDownloading {index}/{total}")
+
     if os.path.exists(final_path):
-        print(f"\nSkipping (already exists): {file_name}")
+        print(f"Skipping (already exists): {file_name}")
         return
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            print(f"\nDownloading {file_name} (attempt {attempt})")
+            print(f"Downloading {file_name} (attempt {attempt})")
 
             await client.download_media(
                 message,
@@ -196,32 +196,54 @@ async def run_downloader(channel, output):
     print("Connecting to Telegram...")
     await login(client)
 
+    # ✅ Friendly validation (optional warning)
+    if not (channel.startswith("-100") or channel.startswith("http")):
+        print("\n⚠️ Warning: Channel format looks invalid.")
+
+    # ✅ Safe entity resolution
     try:
-        entity = await client.get_entity(int(channel))
-    except ValueError:
-        entity = await client.get_entity(channel)
+        try:
+            entity = await client.get_entity(int(channel))
+        except ValueError:
+            entity = await client.get_entity(channel)
 
-    print("Starting video download...\n")
+    except ChatIdInvalidError:
+        print("\n❌ Invalid channel.")
+        print("Make sure you:")
+        print("- Use a valid Telegram channel link (recommended)")
+        print("- Or a valid channel ID starting with -100")
+        print("\nExamples:")
+        print("  --channel https://t.me/your_channel")
+        print("  --channel -1001234567890\n")
 
+        await client.disconnect()
+        return
+
+    print("Fetching video list...")
+
+    messages = []
     async for message in client.iter_messages(entity, reverse=True):
         if message.video:
-            await download_with_retry(client, message, base_path)
+            messages.append(message)
+
+    total = len(messages)
+    print(f"Total videos found: {total}\n")
+
+    for i, message in enumerate(messages, start=1):
+        await download_with_retry(client, message, base_path, i, total)
 
     await client.disconnect()
     print("\nAll downloads completed!")
 
 
 # =============================
-# CLI COMMAND
+# CLI
 # =============================
 @app.command()
 def main(
     channel: str = typer.Option(..., help="Channel ID or public link"),
     output: str = typer.Option(..., help="Output folder name"),
 ):
-    """
-    Download videos from a Telegram channel
-    """
     try:
         asyncio.run(run_downloader(channel, output))
     except KeyboardInterrupt:
