@@ -165,7 +165,22 @@ The downloader will resume correctly on the next run.
 
 ---
 
-## 🤝 Contributing
+## � AI-Assisted Development
+
+This project was built using modern AI-assisted software development practices.
+
+| Category | Tool |
+| --- | --- |
+| IDE/Agent | VSCode with GitHub Copilot |
+| Primary Model | GPT-5.3 |
+| Strategic Support | ChatGPT |
+| Methodology | Iterative prototyping |
+
+This repository is small and focused, so development followed a lightweight and iterative approach rather than formal Spec-Driven Development. The implementation was refined through direct coding, testing, and incremental improvements while keeping the scope practical for a single CLI utility.
+
+---
+
+## �🤝 Contributing
 
 Feel free to open issues or submit pull requests.
 
