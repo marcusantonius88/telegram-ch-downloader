@@ -165,7 +165,7 @@ The downloader will resume correctly on the next run.
 
 ---
 
-## � AI-Assisted Development
+## 🤖 AI-Assisted Development
 
 This project was built using modern AI-assisted software development practices.
 
@@ -180,7 +180,7 @@ This repository is small and focused, so development followed a lightweight and 
 
 ---
 
-## �🤝 Contributing
+## 🤝 Contributing
 
 Feel free to open issues or submit pull requests.
 
